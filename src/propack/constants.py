@@ -259,3 +259,48 @@ CRC_TABLE = (
     0x8081,
     0x4040,
 )
+
+# Compression parameters
+DICT_SIZE = 0xFFFF
+MAX_MATCHES = 0x1000
+PACK_BLOCK_SIZE = 0x3000
+
+# Method 2 match encoding lookup tables
+M2_COUNT_BITS = (0x00, 0x0E, 0x08, 0x0A, 0x12, 0x13, 0x16)
+M2_COUNT_BITS_LEN = (0, 4, 4, 4, 5, 5, 5)
+M2_OFFSET_BITS = (
+    0x00,
+    0x06,
+    0x08,
+    0x09,
+    0x15,
+    0x17,
+    0x1D,
+    0x1F,
+    0x28,
+    0x29,
+    0x2C,
+    0x2D,
+    0x38,
+    0x39,
+    0x3C,
+    0x3D,
+)
+M2_OFFSET_BITS_LEN = (
+    1,
+    3,
+    4,
+    4,
+    5,
+    5,
+    5,
+    5,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+    6,
+)

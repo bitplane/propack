@@ -4,6 +4,7 @@ from pathlib import Path
 
 from propack.constants import HEADER_SIZE, RNC_SIGNATURE
 from propack.header import parse_header
+from propack.pack import pack
 from propack.unpack import unpack
 
 
@@ -24,6 +25,24 @@ def cmd_unpack(args):
 
     output.write_bytes(result)
     print(f"unpacked {len(data)} -> {len(result)} bytes to {output}")
+    return 0
+
+
+def cmd_pack(args):
+    data = args.input.read_bytes()
+
+    try:
+        result = pack(data, method=args.method, key=args.key)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+    output = args.output
+    if output is None:
+        output = args.input.with_suffix(f".rnc{args.method}")
+
+    output.write_bytes(result)
+    print(f"packed {len(data)} -> {len(result)} bytes to {output}")
     return 0
 
 
@@ -103,6 +122,13 @@ def main(argv=None):
         description="RNC ProPack compression tool",
     )
     sub = parser.add_subparsers(dest="command")
+
+    p_pack = sub.add_parser("pack", aliases=["p"], help="compress a file")
+    p_pack.add_argument("input", type=Path, help="input file")
+    p_pack.add_argument("output", type=Path, nargs="?", help="output file")
+    p_pack.add_argument("-m", "--method", type=int, default=1, choices=[1, 2], help="compression method (default: 1)")
+    p_pack.add_argument("-k", "--key", type=lambda x: int(x, 0), default=0, help="encryption key")
+    p_pack.set_defaults(func=cmd_pack)
 
     p_unpack = sub.add_parser("unpack", aliases=["u"], help="decompress a file")
     p_unpack.add_argument("input", type=Path, help="input file")
