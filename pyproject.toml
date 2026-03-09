@@ -6,11 +6,26 @@ authors = [
     { name = "Gareth Davidson", email = "gaz@bitplane.net" }
 ]
 readme = "README.md"
+license = "WTFPL"
 requires-python = ">=3.10"
+keywords = ["propack", "compression", "packing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 
 dependencies = [
 
 ]
+
+[project.urls]
+Homepage = "https://bitplane.net/dev/python/propack"
+Repository = "https://github.com/bitplane/propack"
+Issues = "https://github.com/bitplane/propack/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -21,8 +36,6 @@ dev = [
     "build",
     "twine",
     "ruff",
-    "mkdocs",
-    "mkdocs-material",
     "pydoc-markdown"
 ]
 
