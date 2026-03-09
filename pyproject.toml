@@ -6,7 +6,7 @@ authors = [
     { name = "Gareth Davidson", email = "gaz@bitplane.net" }
 ]
 readme = "README.md"
-license = "WTFPL"
+license = "Unlicense"
 requires-python = ">=3.10"
 keywords = ["propack", "compression", "packing"]
 classifiers = [
