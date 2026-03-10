@@ -2,6 +2,7 @@
 
 import struct
 
+from propack.bits import inverse_bits, ror16
 from propack.bitwriter import BitWriterM1, BitWriterM2
 from propack.constants import (
     M2_COUNT_BITS,
@@ -12,22 +13,6 @@ from propack.constants import (
 )
 from propack.crc import crc16
 from propack.lz import scan_block
-
-
-def _ror16(key):
-    if key & 1:
-        return 0x8000 | (key >> 1)
-    return key >> 1
-
-
-def _inverse_bits(value, count):
-    result = 0
-    for _ in range(count):
-        result <<= 1
-        if value & 1:
-            result |= 1
-        value >>= 1
-    return result
 
 
 # --- Method 2 ---
@@ -63,7 +48,7 @@ def _encode_literals_m2(writer, data, offset, count, key):
                     offset += 1
 
                 remaining -= batch
-                key = _ror16(key)
+                key = ror16(key)
         else:
             while remaining > 0:
                 writer.write_bits(0, 1)
@@ -71,7 +56,7 @@ def _encode_literals_m2(writer, data, offset, count, key):
                 writer.queue_byte(b)
                 writer.processed += 1
                 offset += 1
-                key = _ror16(key)
+                key = ror16(key)
                 remaining -= 1
 
     return offset, key
@@ -150,7 +135,7 @@ def _assign_codes(bit_depth, count):
     for bc in range(1, 17):
         for i in range(count):
             if bit_depth[i] == bc:
-                codes[i] = _inverse_bits(val // div, bc)
+                codes[i] = inverse_bits(val // div, bc)
                 val += div
         div >>= 1
 
@@ -222,7 +207,7 @@ def pack(data: bytes | bytearray, method: int = 1, key: int = 0) -> bytes:
             raw_freq = [0] * 16
             len_freq = [0] * 16
             pos_freq = [0] * 16
-            records, consumed = scan_block(
+            records, _ = scan_block(
                 data,
                 data_offset,
                 total,
@@ -231,7 +216,7 @@ def pack(data: bytes | bytearray, method: int = 1, key: int = 0) -> bytes:
                 len_freq=len_freq,
             )
         else:
-            records, consumed = scan_block(data, data_offset, total, max_matches=263, max_offset=0x1000)
+            records, _ = scan_block(data, data_offset, total, max_matches=263, max_offset=0x1000)
 
         read_pos = data_offset
         enc_key = key
@@ -266,14 +251,13 @@ def pack(data: bytes | bytearray, method: int = 1, key: int = 0) -> bytes:
                         writer.queue_byte(b)
                         writer.processed += 1
                         read_pos += 1
-                    enc_key = _ror16(enc_key)
+                    enc_key = ror16(enc_key)
 
             if not is_last:
                 actual_count = match_count + 2
-                actual_offset = match_offset + 1
 
                 if method == 2:
-                    _encode_match_m2(writer, match_count, match_offset, actual_count, actual_offset)
+                    _encode_match_m2(writer, match_count, match_offset)
                 else:
                     _write_huffman_value(writer, len_table, match_offset)
                     _write_huffman_value(writer, pos_table, match_count)
@@ -292,10 +276,7 @@ def pack(data: bytes | bytearray, method: int = 1, key: int = 0) -> bytes:
             else:
                 writer.write_bits(1, 1)
 
-            if not writer.bit_count:
-                for b in writer.pending:
-                    writer._write_out(b)
-                writer.pending.clear()
+            writer.flush_pending()
         else:
             data_offset = read_pos
 
@@ -323,7 +304,7 @@ def pack(data: bytes | bytearray, method: int = 1, key: int = 0) -> bytes:
     return header + payload
 
 
-def _encode_match_m2(writer, mc, mo, actual_count, actual_offset):
+def _encode_match_m2(writer, mc, mo):
     """Encode a match for method 2.
 
     The count_bits table entries already include the full bit prefix

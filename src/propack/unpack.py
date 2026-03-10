@@ -1,14 +1,8 @@
 from propack.bitreader import BitReader
+from propack.bits import inverse_bits, ror16
 from propack.constants import HEADER_SIZE
 from propack.crc import crc16
 from propack.header import RncHeader, parse_header
-
-
-def _ror16(key: int) -> int:
-    """Rotate right 16-bit value by 1."""
-    if key & 1:
-        return 0x8000 | (key >> 1)
-    return key >> 1
 
 
 def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
@@ -22,7 +16,7 @@ def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
                 # literal byte
                 b = (key ^ reader.read_byte()) & 0xFF
                 output.append(b)
-                key = _ror16(key)
+                key = ror16(key)
                 processed += 1
             else:
                 if reader.read_bits_m2(1):
@@ -63,7 +57,7 @@ def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
                         for _ in range(data_length):
                             b = (key ^ reader.read_byte()) & 0xFF
                             output.append(b)
-                        key = _ror16(key)
+                        key = ror16(key)
 
     return output
 
@@ -96,17 +90,6 @@ def _decode_match_offset(reader: BitReader) -> int:
     return ((offset << 8) | reader.read_byte()) + 1
 
 
-def _inverse_bits(value: int, count: int) -> int:
-    """Reverse the bit order of value over count bits."""
-    result = 0
-    for _ in range(count):
-        result <<= 1
-        if value & 1:
-            result |= 1
-        value >>= 1
-    return result
-
-
 def _make_huftable(reader: BitReader) -> list[tuple[int, int]]:
     """Read a huffman table from the stream. Returns list of (bit_depth, code)."""
     leaf_nodes = reader.read_bits_m1(5)
@@ -127,7 +110,7 @@ def _make_huftable(reader: BitReader) -> list[tuple[int, int]]:
     for bits_count in range(1, 17):
         for i in range(leaf_nodes):
             if bit_depths[i] == bits_count:
-                codes[i] = _inverse_bits(val // div, bits_count)
+                codes[i] = inverse_bits(val // div, bits_count)
                 val += div
         div >>= 1
 
@@ -167,7 +150,7 @@ def _unpack_m1(reader: BitReader, header: RncHeader, key: int) -> bytearray:
                     b = (key ^ reader.read_byte()) & 0xFF
                     output.append(b)
 
-                key = _ror16(key)
+                key = ror16(key)
 
                 # reload lookahead into bit buffer after reading raw bytes
                 if reader.pos + 2 < len(reader.data):

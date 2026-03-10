@@ -39,6 +39,13 @@ class BitWriterM2:
         else:
             self._write_out(b)
 
+    def flush_pending(self):
+        """Flush pending bytes directly if no bits are buffered."""
+        if not self.bit_count:
+            for b in self.pending:
+                self._write_out(b)
+            self.pending.clear()
+
     def finalize(self) -> bytes:
         if self.bit_count or self.pending:
             self.pack_token <<= 8 - self.bit_count
