@@ -31,6 +31,7 @@ def _encode_literals_m2(writer, data, offset, count, key):
                 writer.processed += 1
                 offset += 1
                 remaining -= 1
+                key = ror16(key)
             else:
                 writer.write_bits(0x17, 5)
 

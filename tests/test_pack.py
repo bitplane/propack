@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from propack import parse_header, unpack
+from propack.constants import PACK_BLOCK_SIZE
 from propack.pack import pack
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -58,6 +59,27 @@ def test_pack_repeated_byte():
     raw = b"\xaa" * 1000
     packed = pack(raw, method=2)
     assert unpack(packed) == raw
+
+
+@pytest.mark.parametrize("method", [1, 2])
+@pytest.mark.parametrize("size", [PACK_BLOCK_SIZE, PACK_BLOCK_SIZE + 1, PACK_BLOCK_SIZE * 2 + 17])
+def test_encrypted_roundtrip_across_chunk_boundaries(method, size):
+    raw = bytes((i * 37 + 11) & 0xFF for i in range(size))
+    key = 0x1234
+
+    packed = pack(raw, method=method, key=key)
+
+    assert unpack(packed, key=key) == raw
+
+
+@pytest.mark.parametrize("size", [13, 17, 29])
+def test_encrypted_method2_literal_runs(size):
+    raw = bytes(range(size))
+    key = 0x1234
+
+    packed = pack(raw, method=2, key=key)
+
+    assert unpack(packed, key=key) == raw
 
 
 def test_pack_invalid_method():

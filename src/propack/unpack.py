@@ -9,8 +9,10 @@ def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
     """Decompress method 2 data."""
     output = bytearray()
     processed = 0
+    initial_key = key
 
     while processed < header.unpacked_size:
+        key = initial_key
         while True:
             if not reader.read_bits_m2(1):
                 # literal byte
@@ -133,8 +135,10 @@ def _unpack_m1(reader: BitReader, header: RncHeader, key: int) -> bytearray:
     """Decompress method 1 data."""
     output = bytearray()
     processed = 0
+    initial_key = key
 
     while processed < header.unpacked_size:
+        key = initial_key
         raw_table = _make_huftable(reader)
         len_table = _make_huftable(reader)
         pos_table = _make_huftable(reader)
