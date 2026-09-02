@@ -1,8 +1,10 @@
+import struct
 from pathlib import Path
 
 import pytest
 
 from propack import parse_header, unpack
+from propack.crc import crc16
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -55,3 +57,14 @@ def test_invalid_signature():
 def test_truncated_header():
     with pytest.raises(ValueError, match="too short"):
         unpack(b"RNC\x01" + b"\x00" * 5)
+
+
+@pytest.mark.parametrize("method", [1, 2])
+def test_truncated_payload_raises_value_error(method):
+    data = bytearray((FIXTURES / f"pack1.rnc{method}").read_bytes()[:28])
+    payload_size = len(data) - 18
+    struct.pack_into(">I", data, 8, payload_size)
+    struct.pack_into(">H", data, 14, crc16(data[18:]))
+
+    with pytest.raises(ValueError, match="unexpected end of packed data"):
+        unpack(data)

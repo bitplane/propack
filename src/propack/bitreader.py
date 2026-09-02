@@ -1,17 +1,29 @@
 class BitReader:
     """Reads bits from a byte buffer, used by both method 1 and method 2."""
 
-    def __init__(self, data: bytes | bytearray, offset: int = 0):
+    def __init__(self, data: bytes | bytearray, offset: int = 0, end: int | None = None):
         self.data = data
         self.pos = offset
+        self.end = len(data) if end is None else end
         self.bit_buffer = 0
         self.bit_count = 0
 
     def _peek(self, offset: int) -> int:
         i = self.pos + offset
-        return self.data[i] if i < len(self.data) else 0
+        return self.data[i] if i < self.end else 0
 
     def read_byte(self) -> int:
+        if self.pos >= self.end:
+            raise ValueError("unexpected end of packed data")
+        b = self._peek(0)
+        self.pos += 1
+        return b
+
+    def _read_m1_token_byte(self) -> int:
+        # Method 1 streams may omit up to two zero padding bytes from the
+        # final 16-bit token.
+        if self.pos >= self.end + 2:
+            raise ValueError("unexpected end of packed data")
         b = self._peek(0)
         self.pos += 1
         return b
@@ -23,8 +35,8 @@ class BitReader:
 
         for _ in range(count):
             if not self.bit_count:
-                b1 = self.read_byte()
-                b2 = self.read_byte()
+                b1 = self._read_m1_token_byte()
+                b2 = self._read_m1_token_byte()
                 # lookahead: peek next 2 bytes without advancing
                 lo = self._peek(0)
                 hi = self._peek(1)

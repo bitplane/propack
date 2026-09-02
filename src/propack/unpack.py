@@ -157,15 +157,15 @@ def _unpack_m1(reader: BitReader, header: RncHeader, key: int) -> bytearray:
                 key = ror16(key)
 
                 # reload lookahead into bit buffer after reading raw bytes
-                if reader.pos + 2 < len(reader.data):
+                if reader.pos + 2 < reader.end:
                     hi = reader.data[reader.pos + 2]
                 else:
                     hi = 0
-                if reader.pos + 1 < len(reader.data):
+                if reader.pos + 1 < reader.end:
                     mid = reader.data[reader.pos + 1]
                 else:
                     mid = 0
-                if reader.pos < len(reader.data):
+                if reader.pos < reader.end:
                     lo = reader.data[reader.pos]
                 else:
                     lo = 0
@@ -205,7 +205,7 @@ def unpack(data: bytes | bytearray, key: int = 0) -> bytes:
     if packed_crc != header.packed_crc:
         raise ValueError(f"packed CRC mismatch: expected 0x{header.packed_crc:04X}, " f"got 0x{packed_crc:04X}")
 
-    reader = BitReader(data, HEADER_SIZE)
+    reader = BitReader(data, HEADER_SIZE, HEADER_SIZE + header.packed_size)
 
     # first bit: lock flag (must be 0 for unpacking)
     lock_flag = reader.read_bits_m1(1) if header.method == 1 else reader.read_bits_m2(1)
