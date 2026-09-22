@@ -29,6 +29,14 @@ def cmd_unpack(args):
 
 
 def cmd_pack(args):
+    output = args.output
+    if output is None:
+        output = args.input.with_suffix(f".rnc{args.method}")
+
+    if output.resolve() == args.input.resolve() or (output.exists() and output.samefile(args.input)):
+        print("error: output must not overwrite the input file", file=sys.stderr)
+        return 1
+
     data = args.input.read_bytes()
 
     try:
@@ -36,10 +44,6 @@ def cmd_pack(args):
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-
-    output = args.output
-    if output is None:
-        output = args.input.with_suffix(f".rnc{args.method}")
 
     output.write_bytes(result)
     print(f"packed {len(data)} -> {len(result)} bytes to {output}")
