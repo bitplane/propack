@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from propack import parse_header, unpack
+from propack import pack, parse_header, unpack
 from propack.crc import crc16
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -67,4 +67,24 @@ def test_truncated_payload_raises_value_error(method):
     struct.pack_into(">H", data, 14, crc16(data[18:]))
 
     with pytest.raises(ValueError, match="unexpected end of packed data"):
+        unpack(data)
+
+
+@pytest.mark.parametrize("method", [1, 2])
+@pytest.mark.parametrize("raw", [b"abc", bytes(range(20)), b"abab", b"a" * 6, b"a" * 30, b"hello world" * 10])
+def test_output_cannot_exceed_declared_size(method, raw):
+    data = bytearray(pack(raw, method=method))
+    # Size is outside the CRC-covered payload, so both CRCs remain valid.
+    struct.pack_into(">I", data, 4, len(raw) - 1)
+
+    with pytest.raises(ValueError, match="exceeds declared size"):
+        unpack(data)
+
+
+@pytest.mark.parametrize("method", [1, 2])
+def test_output_shorter_than_declared_size_is_rejected(method):
+    data = bytearray(pack(b"hello world", method=method))
+    struct.pack_into(">I", data, 4, 12)
+
+    with pytest.raises(ValueError):
         unpack(data)

@@ -5,6 +5,11 @@ from propack.crc import crc16
 from propack.header import RncHeader, parse_header
 
 
+def _check_output_size(size: int, limit: int) -> None:
+    if size > limit:
+        raise ValueError("unpacked data exceeds declared size")
+
+
 def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
     """Decompress method 2 data."""
     output = bytearray()
@@ -16,10 +21,11 @@ def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
         while True:
             if not reader.read_bits_m2(1):
                 # literal byte
+                processed += 1
+                _check_output_size(processed, header.unpacked_size)
                 b = (key ^ reader.read_byte()) & 0xFF
                 output.append(b)
                 key = ror16(key)
-                processed += 1
             else:
                 if reader.read_bits_m2(1):
                     if reader.read_bits_m2(1):
@@ -41,6 +47,7 @@ def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
                         match_offset = reader.read_byte() + 1
 
                     processed += match_count
+                    _check_output_size(processed, header.unpacked_size)
                     for _ in range(match_count):
                         output.append(output[-match_offset])
                 else:
@@ -50,12 +57,14 @@ def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
                     if match_count != 9:
                         match_offset = _decode_match_offset(reader)
                         processed += match_count
+                        _check_output_size(processed, header.unpacked_size)
                         for _ in range(match_count):
                             output.append(output[-match_offset])
                     else:
                         # raw literal run
                         data_length = (reader.read_bits_m2(4) << 2) + 12
                         processed += data_length
+                        _check_output_size(processed, header.unpacked_size)
                         for _ in range(data_length):
                             b = (key ^ reader.read_byte()) & 0xFF
                             output.append(b)
@@ -148,6 +157,7 @@ def _unpack_m1(reader: BitReader, header: RncHeader, key: int) -> bytearray:
         for sc in range(subchunks):
             data_length = _decode_table_data(reader, raw_table)
             processed += data_length
+            _check_output_size(processed, header.unpacked_size)
 
             if data_length:
                 for _ in range(data_length):
@@ -178,6 +188,7 @@ def _unpack_m1(reader: BitReader, header: RncHeader, key: int) -> bytearray:
                 match_offset = _decode_table_data(reader, len_table) + 1
                 match_count = _decode_table_data(reader, pos_table) + 2
                 processed += match_count
+                _check_output_size(processed, header.unpacked_size)
 
                 for _ in range(match_count):
                     output.append(output[-match_offset])
@@ -221,6 +232,9 @@ def unpack(data: bytes | bytearray, key: int = 0) -> bytes:
         output = _unpack_m1(reader, header, key)
     else:
         output = _unpack_m2(reader, header, key)
+
+    if len(output) != header.unpacked_size:
+        raise ValueError(f"unpacked size mismatch: expected {header.unpacked_size}, got {len(output)}")
 
     # verify unpacked CRC
     unpacked_crc = crc16(output)
