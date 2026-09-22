@@ -88,3 +88,27 @@ def test_output_shorter_than_declared_size_is_rejected(method):
 
     with pytest.raises(ValueError):
         unpack(data)
+
+
+@pytest.mark.parametrize(
+    "method,payload,size",
+    [
+        (1, bytes.fromhex("8408114200000000"), 2),
+        (2, bytes.fromhex("3000"), 2),  # short match
+        (2, bytes.fromhex("3800"), 3),  # three-byte match
+        (2, bytes.fromhex("2000"), 4),  # medium match
+        (2, bytes.fromhex("3c0100"), 9),  # long match
+    ],
+)
+def test_match_before_start_of_output_raises_value_error(method, payload, size):
+    # Every stream starts with a match at distance one, before any literals.
+    data = struct.pack(">3sBIIHHBB", b"RNC", method, size, len(payload), 0, crc16(payload), 0, 1) + payload
+
+    with pytest.raises(ValueError, match="invalid match offset"):
+        unpack(data)
+
+
+@pytest.mark.parametrize("method", [1, 2])
+@pytest.mark.parametrize("raw", [b"a" * 100, b"abcd" * 100])
+def test_overlapping_matches_remain_valid(method, raw):
+    assert unpack(pack(raw, method=method)) == raw

@@ -10,6 +10,14 @@ def _check_output_size(size: int, limit: int) -> None:
         raise ValueError("unpacked data exceeds declared size")
 
 
+def _copy_match(output: bytearray, offset: int, count: int) -> None:
+    if not 1 <= offset <= len(output):
+        raise ValueError("invalid match offset")
+    # Copy incrementally: matches may overlap the bytes being appended.
+    for _ in range(count):
+        output.append(output[-offset])
+
+
 def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
     """Decompress method 2 data."""
     output = bytearray()
@@ -48,8 +56,7 @@ def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
 
                     processed += match_count
                     _check_output_size(processed, header.unpacked_size)
-                    for _ in range(match_count):
-                        output.append(output[-match_offset])
+                    _copy_match(output, match_offset, match_count)
                 else:
                     # medium match or raw literal run
                     match_count = _decode_match_count(reader)
@@ -58,8 +65,7 @@ def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
                         match_offset = _decode_match_offset(reader)
                         processed += match_count
                         _check_output_size(processed, header.unpacked_size)
-                        for _ in range(match_count):
-                            output.append(output[-match_offset])
+                        _copy_match(output, match_offset, match_count)
                     else:
                         # raw literal run
                         data_length = (reader.read_bits_m2(4) << 2) + 12
@@ -190,8 +196,7 @@ def _unpack_m1(reader: BitReader, header: RncHeader, key: int) -> bytearray:
                 processed += match_count
                 _check_output_size(processed, header.unpacked_size)
 
-                for _ in range(match_count):
-                    output.append(output[-match_offset])
+                _copy_match(output, match_offset, match_count)
 
     return output
 
