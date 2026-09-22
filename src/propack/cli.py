@@ -98,7 +98,7 @@ def cmd_scan(args):
 def cmd_extract(args):
     data = args.input.read_bytes()
     found = 0
-    dest = args.output or Path(".")
+    dest = args.output_dir or args.output or Path(".")
 
     for i in range(len(data) - HEADER_SIZE):
         if data[i : i + 3] == RNC_SIGNATURE and data[i + 3] in (1, 2):
@@ -150,7 +150,9 @@ def main(argv=None):
 
     p_extract = sub.add_parser("extract", aliases=["e"], help="scan and extract embedded RNC data")
     p_extract.add_argument("input", type=Path, help="input file")
-    p_extract.add_argument("output", type=Path, nargs="?", help="output directory")
+    extract_output = p_extract.add_mutually_exclusive_group()
+    extract_output.add_argument("output", type=Path, nargs="?", help="output directory")
+    extract_output.add_argument("-o", "--output", dest="output_dir", type=Path, help="output directory")
     p_extract.add_argument("-k", "--key", type=lambda x: int(x, 0), default=0, help="encryption key")
     p_extract.set_defaults(func=cmd_extract)
 

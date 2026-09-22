@@ -50,3 +50,38 @@ def test_extract_skips_invalid_match_and_continues(tmp_path):
     assert main(["extract", str(source), str(dest)]) == 0
     assert [p.name for p in dest.iterdir()] == [f"rom.{len(malformed):08X}.bin"]
     assert (dest / f"rom.{len(malformed):08X}.bin").read_bytes() == raw
+
+
+@pytest.mark.parametrize("option", [None, "-o", "--output"])
+@pytest.mark.parametrize("command", ["extract", "e"])
+def test_extract_output_directory(tmp_path, option, command):
+    raw = b"embedded data"
+    source = tmp_path / "rom.bin"
+    source.write_bytes(b"prefix" + pack(raw))
+    dest = tmp_path / "output"
+    argv = [command, str(source)]
+    if option:
+        argv.append(option)
+    argv.append(str(dest))
+
+    assert main(argv) == 0
+    assert (dest / "rom.00000006.bin").read_bytes() == raw
+
+
+def test_extract_default_directory(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    raw = b"embedded data"
+    source = tmp_path / "rom.bin"
+    source.write_bytes(pack(raw))
+
+    assert main(["extract", str(source)]) == 0
+    assert (tmp_path / "rom.00000000.bin").read_bytes() == raw
+
+
+def test_extract_rejects_conflicting_output_directories(tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["extract", "rom.bin", str(tmp_path / "one"), "-o", str(tmp_path / "two")])
+
+    assert exc.value.code == 2
+    assert "not allowed with argument" in capsys.readouterr().err
+    assert list(tmp_path.iterdir()) == []
