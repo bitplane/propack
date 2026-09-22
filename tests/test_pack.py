@@ -90,3 +90,21 @@ def test_pack_invalid_method():
 def test_pack_empty():
     with pytest.raises(ValueError, match="empty"):
         pack(b"", method=1)
+
+
+@pytest.mark.parametrize(
+    "method,raw,expected",
+    [
+        (1, b"A" * 517, 0),
+        (1, b"A" * 4096, 0),
+        (1, bytes(range(20)), 8),
+        (2, b"A" * 517, 4),
+        (2, b"A" * 4096, 2),
+        (2, bytes(range(20)), 5),
+    ],
+)
+def test_header_leeway(method, raw, expected):
+    packed = pack(raw, method=method)
+
+    assert parse_header(packed).leeway == expected
+    assert unpack(packed) == raw

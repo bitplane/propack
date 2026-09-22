@@ -14,7 +14,6 @@ from propack.constants import (
 from propack.crc import crc16
 from propack.lz import scan_block
 
-
 # --- Method 2 ---
 
 
@@ -284,7 +283,9 @@ def pack(data: bytes | bytearray, method: int = 1, key: int = 0) -> bytes:
         chunk_count += 1
 
     payload = writer.finalize()
-    leeway = writer.leeway
+    # Convert the peak output/input gap into extra space beyond the final
+    # unpacked buffer, including the bytes emitted by finalize().
+    leeway = max(0, writer.leeway - (total - len(payload)))
     if method == 2:
         leeway += 2
 
