@@ -39,6 +39,72 @@ def test_pack_default_output(tmp_path):
     assert unpack(source.with_suffix(".rnc1").read_bytes()) == raw
 
 
+@pytest.mark.parametrize("command", ["pack", "p"])
+@pytest.mark.parametrize("unpack_command", ["unpack", "u"])
+def test_file_commands_accept_options_between_paths(tmp_path, command, unpack_command):
+    source = tmp_path / "asset.bin"
+    packed = tmp_path / "asset.rnc2"
+    output = tmp_path / "restored.bin"
+    raw = b"original contents"
+    source.write_bytes(raw)
+
+    assert main([command, str(source), "-m", "2", "-k", "0x1234", str(packed)]) == 0
+    assert main([unpack_command, str(packed), "-k", "0x1234", str(output)]) == 0
+    assert output.read_bytes() == raw
+
+
+@pytest.mark.parametrize("method", [1, 2])
+@pytest.mark.parametrize("destination", ["explicit", "symlink", "hardlink", "default_symlink", "default_hardlink"])
+def test_unpack_preserves_input_on_output_collision(tmp_path, capsys, method, destination):
+    source = tmp_path / f"asset.rnc{method}"
+    packed = pack(b"original contents", method=method)
+    source.write_bytes(packed)
+    argv = ["unpack", str(source)]
+    output = source
+    if destination != "explicit":
+        output = source.with_suffix("") if destination.startswith("default_") else tmp_path / "alias"
+        if destination.endswith("symlink"):
+            output.symlink_to(source)
+        else:
+            output.hardlink_to(source)
+    if not destination.startswith("default_"):
+        argv.append(str(output))
+
+    assert main(argv) == 1
+    assert "must not overwrite" in capsys.readouterr().err
+    assert source.read_bytes() == packed
+
+
+@pytest.mark.parametrize("suffix", [".rnc1", ""])
+def test_unpack_default_output(tmp_path, suffix):
+    source = tmp_path / f"asset{suffix}"
+    raw = b"original contents"
+    packed = pack(raw)
+    source.write_bytes(packed)
+
+    assert main(["unpack", str(source)]) == 0
+    assert source.read_bytes() == packed
+    output = source.with_suffix("") if suffix else source.with_suffix(".unpacked")
+    assert output.read_bytes() == raw
+
+
+@pytest.mark.parametrize("method", [1, 2])
+@pytest.mark.parametrize("link", ["symlink", "hardlink"])
+def test_extract_preserves_input_on_output_collision(tmp_path, capsys, method, link):
+    source = tmp_path / "rom.bin"
+    packed = pack(b"embedded contents", method=method)
+    source.write_bytes(packed)
+    output = tmp_path / "rom.00000000.bin"
+    if link == "symlink":
+        output.symlink_to(source)
+    else:
+        output.hardlink_to(source)
+
+    assert main(["extract", str(source), str(tmp_path)]) == 1
+    assert "must not overwrite" in capsys.readouterr().err
+    assert source.read_bytes() == packed
+
+
 def test_extract_skips_invalid_match_and_continues(tmp_path):
     payload = bytes.fromhex("3000")
     malformed = struct.pack(">3sBIIHHBB", b"RNC", 2, 2, 2, 0, crc16(payload), 0, 1) + payload

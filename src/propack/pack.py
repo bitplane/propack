@@ -201,6 +201,8 @@ def pack(data: bytes | bytearray, method: int = 1, key: int = 0) -> bytes:
 
     chunk_count = 0
     data_offset = 0
+    # The rotating encryption key is shared by every chunk in the stream.
+    enc_key = key
 
     while data_offset < total:
         if method == 1:
@@ -219,7 +221,6 @@ def pack(data: bytes | bytearray, method: int = 1, key: int = 0) -> bytes:
             records, _ = scan_block(data, data_offset, total, max_matches=263, max_offset=0x1000)
 
         read_pos = data_offset
-        enc_key = key
 
         if method == 1:
             raw_table = _build_huffman(raw_freq)

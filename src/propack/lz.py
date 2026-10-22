@@ -77,10 +77,8 @@ def _find_best_match(data, pos, end, start, max_matches, max_offset=0xFFFF):
     best_count = 1
     best_offset = 0
     avail = end - pos
-    lookback = pos - start
-
-    if lookback > max_offset:
-        lookback = max_offset
+    max_count = min(avail, max_matches)
+    lookback = min(pos - start, max_offset)
 
     b0 = data[pos]
     b1 = data[pos + 1] if pos + 1 < end else -1
@@ -91,7 +89,6 @@ def _find_best_match(data, pos, end, start, max_matches, max_offset=0xFFFF):
         if data[pos - dist] == b0 and (b1 < 0 or data[pos - dist + 1] == b1):
             # extend match
             count = 0
-            max_count = min(avail, max_matches)
             while count < max_count and data[pos + count] == data[pos - dist + count]:
                 count += 1
 
@@ -99,7 +96,7 @@ def _find_best_match(data, pos, end, start, max_matches, max_offset=0xFFFF):
                 best_count = count
                 best_offset = dist
 
-                if best_count >= max_matches:
+                if best_count >= max_count:
                     break
 
         dist += 1

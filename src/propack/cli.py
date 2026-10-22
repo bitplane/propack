@@ -8,7 +8,23 @@ from propack.pack import pack
 from propack.unpack import unpack
 
 
+def _output_overwrites_input(source: Path, output: Path) -> bool:
+    if output.resolve() == source.resolve() or (output.exists() and output.samefile(source)):
+        print("error: output must not overwrite the input file", file=sys.stderr)
+        return True
+    return False
+
+
 def cmd_unpack(args):
+    output = args.output
+    if output is None:
+        output = args.input.with_suffix("")
+        if output == args.input:
+            output = args.input.with_suffix(".unpacked")
+
+    if _output_overwrites_input(args.input, output):
+        return 1
+
     data = args.input.read_bytes()
 
     try:
@@ -16,12 +32,6 @@ def cmd_unpack(args):
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-
-    output = args.output
-    if output is None:
-        output = args.input.with_suffix("")
-        if output == args.input:
-            output = args.input.with_suffix(".unpacked")
 
     output.write_bytes(result)
     print(f"unpacked {len(data)} -> {len(result)} bytes to {output}")
@@ -33,8 +43,7 @@ def cmd_pack(args):
     if output is None:
         output = args.input.with_suffix(f".rnc{args.method}")
 
-    if output.resolve() == args.input.resolve() or (output.exists() and output.samefile(args.input)):
-        print("error: output must not overwrite the input file", file=sys.stderr)
+    if _output_overwrites_input(args.input, output):
         return 1
 
     data = args.input.read_bytes()
@@ -83,7 +92,7 @@ def cmd_scan(args):
                 method = header.method
                 unpacked = header.unpacked_size
                 packed = header.packed_size
-                print(f"  offset 0x{i:08X}: method {method}, " f"{packed} -> {unpacked} bytes")
+                print(f"  offset 0x{i:08X}: method {method}, {packed} -> {unpacked} bytes")
                 found += 1
             except ValueError:
                 pass
@@ -109,6 +118,8 @@ def cmd_extract(args):
 
                 dest.mkdir(parents=True, exist_ok=True)
                 out_path = dest / f"{args.input.stem}.{i:08X}.bin"
+                if _output_overwrites_input(args.input, out_path):
+                    return 1
                 out_path.write_bytes(result)
                 print(f"  extracted 0x{i:08X} -> {out_path} ({len(result)} bytes)")
                 found += 1
@@ -156,7 +167,16 @@ def main(argv=None):
     p_extract.add_argument("-k", "--key", type=lambda x: int(x, 0), default=0, help="encryption key")
     p_extract.set_defaults(func=cmd_extract)
 
-    args = parser.parse_args(argv)
+    argv = sys.argv[1:] if argv is None else argv
+    # Python 3.10/3.11 parse_args cannot resume an optional positional after
+    # an option (e.g. "pack input -m 2 output"). Intermixed parsing supports
+    # that form, but must run on the command parser, without subparsers.
+    file_commands = {"pack": p_pack, "p": p_pack, "unpack": p_unpack, "u": p_unpack}
+    if argv and argv[0] in file_commands:
+        args = file_commands[argv[0]].parse_intermixed_args(argv[1:])
+        args.command = argv[0]
+    else:
+        args = parser.parse_args(argv)
 
     if not args.command:
         parser.print_help()

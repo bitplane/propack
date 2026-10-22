@@ -42,7 +42,7 @@ propack pack data.bin -m 2                # -> data.rnc2
 propack pack data.bin -m 1 output.rnc     # explicit output
 
 # Decompress
-propack unpack data.rnc1                  # -> data.bin
+propack unpack data.rnc1                  # -> data
 propack unpack data.rnc1 output.bin       # explicit output
 
 # Inspect
@@ -54,6 +54,13 @@ propack scan rom.bin
 # Extract all embedded RNC blocks
 propack extract rom.bin -o output_dir/
 ```
+
+## Compatibility
+
+Version 0.3.1 fixes encryption key continuity across chunks to match RNC ProPack.
+Encrypted files spanning multiple chunks written by earlier versions may use
+nonstandard per-chunk key resets. Decode those files with the version that
+created them, then recompress them with 0.3.1 or later.
 
 ## 🔗 Links
 

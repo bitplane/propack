@@ -22,10 +22,8 @@ def _unpack_m2(reader: BitReader, header: RncHeader, key: int) -> bytearray:
     """Decompress method 2 data."""
     output = bytearray()
     processed = 0
-    initial_key = key
 
     while processed < header.unpacked_size:
-        key = initial_key
         while True:
             if not reader.read_bits_m2(1):
                 # literal byte
@@ -114,8 +112,7 @@ def _make_huftable(reader: BitReader) -> list[tuple[int, int]]:
     if not leaf_nodes:
         return []
 
-    if leaf_nodes > 16:
-        leaf_nodes = 16
+    leaf_nodes = min(leaf_nodes, 16)
 
     bit_depths = [reader.read_bits_m1(4) for _ in range(leaf_nodes)]
 
@@ -150,10 +147,8 @@ def _unpack_m1(reader: BitReader, header: RncHeader, key: int) -> bytearray:
     """Decompress method 1 data."""
     output = bytearray()
     processed = 0
-    initial_key = key
 
     while processed < header.unpacked_size:
-        key = initial_key
         raw_table = _make_huftable(reader)
         len_table = _make_huftable(reader)
         pos_table = _make_huftable(reader)
@@ -219,7 +214,7 @@ def unpack(data: bytes | bytearray, key: int = 0) -> bytes:
     # verify packed CRC
     packed_crc = crc16(data, HEADER_SIZE, header.packed_size)
     if packed_crc != header.packed_crc:
-        raise ValueError(f"packed CRC mismatch: expected 0x{header.packed_crc:04X}, " f"got 0x{packed_crc:04X}")
+        raise ValueError(f"packed CRC mismatch: expected 0x{header.packed_crc:04X}, got 0x{packed_crc:04X}")
 
     reader = BitReader(data, HEADER_SIZE, HEADER_SIZE + header.packed_size)
 
@@ -244,6 +239,6 @@ def unpack(data: bytes | bytearray, key: int = 0) -> bytes:
     # verify unpacked CRC
     unpacked_crc = crc16(output)
     if unpacked_crc != header.unpacked_crc:
-        raise ValueError(f"unpacked CRC mismatch: expected 0x{header.unpacked_crc:04X}, " f"got 0x{unpacked_crc:04X}")
+        raise ValueError(f"unpacked CRC mismatch: expected 0x{header.unpacked_crc:04X}, got 0x{unpacked_crc:04X}")
 
     return bytes(output)
